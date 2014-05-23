@@ -1,0 +1,23 @@
+{
+	"ImportPath": "github.com/monsooncommerce/gstats",
+	"GoVersion": "go1.2.1",
+	"Deps": [
+		{
+			"ImportPath": "github.com/cactus/go-statsd-client/statsd",
+			"Rev": "5b5607a786a6be31226ca2063e49695712aebc6d"
+		},
+		{
+			"ImportPath": "github.com/franela/goblin",
+			"Comment": "0.0.1-42-gc17019a",
+			"Rev": "c17019ac1e5739e35767611c7ea524e9299bc83c"
+		},
+		{
+			"ImportPath": "github.com/monsooncommerce/log",
+			"Rev": "564e59be763a9f920f5860305ff46607348c75cd"
+		},
+		{
+			"ImportPath": "github.com/onsi/gomega",
+			"Rev": "e287925a206d2f7cf070e08c082ed93dd38fcecc"
+		}
+	]
+}
