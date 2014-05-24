@@ -22,6 +22,21 @@ func TestStatsd(t *testing.T) {
 			Expect(1).To(Equal(1))
 		})
 	})
+	g.Describe("Environment", func() {
+		g.BeforeEach(func() {
+			os.Clearenv()
+		})
+		g.It("should fail fast without STATSD_ADDRESS defined", func(){
+			os.Setenv("STATSD_PREFIX", "test")
+			_, err := CreateStatsdClient()
+			Expect(err).To(HaveOccurred())
+		})
+		g.It("should fail fast without STATSD_PREFIX defined", func(){
+			os.Setenv("STATSD_ADDRESS", "127.0.0.1:31337")
+			_, err := CreateStatsdClient()
+			Expect(err).To(HaveOccurred())
+		})
+	})
 	g.Describe("statsd", func() {
 		buf := make([]byte, 1024)
 		var addr *net.UDPAddr

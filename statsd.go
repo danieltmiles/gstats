@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
-	"github.com/monsooncommerce/log"
 )
 
 type statsToBeIncremented struct {
@@ -28,18 +27,15 @@ type StatsClientWrapper struct {
 func CreateStatsdClient() (*StatsClientWrapper, error) {
 	address := os.Getenv("STATSD_ADDRESS")
 	if address == "" {
-		log.Error("environment variable STATSD_ADDRESS not defined, cannot continue")
-		os.Exit(1)
+		return nil, errors.New("environment variable STATSD_ADDRESS not defined, cannot continue")
 	}
 	prefix := os.Getenv("STATSD_PREFIX")
 	if prefix == "" {
-		log.Error("environment variable STATSD_PREFIX not defined, cannot continue")
-		os.Exit(1)
+		return nil, errors.New("environment variable STATSD_PREFIX not defined, cannot continue")
 	}
 	client, err := statsd.New(address, prefix)
 	if err != nil {
-		log.Error("Couldn't initialize statsd.  StatsdInitError=\"" + err.Error() + "\"")
-		os.Exit(1)
+		return nil, errors.New("Couldn't initialize statsd.  StatsdInitError=\"" + err.Error() + "\"")
 	}
 	wrapper := StatsClientWrapper{client, make(map[string]statsToBeIncremented), make(map[string]statsToBeTraced)}
 	return &wrapper, err
