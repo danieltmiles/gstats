@@ -1,7 +1,6 @@
 package gstats
 
 import (
-	"fmt"
 	"math"
 	"net"
 	"os"
@@ -60,7 +59,7 @@ func TestStatsd(t *testing.T) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(client).NotTo(Equal(nil))
 		})
-		g.It("should send and track increment", func() {
+		g.It("should send increment", func() {
 			client, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
 			for i := 0; i < 5; i++ {
@@ -69,17 +68,24 @@ func TestStatsd(t *testing.T) {
 				readLength, _, err := sock.ReadFromUDP(buf)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(readLength).To(Equal(17))
-				Expect(string(buf[:readLength])).To(Equal(fmt.Sprintf("test.teststat:%d|c", i+1)))
+				Expect(string(buf[:readLength])).To(Equal("test.teststat:1|c"))
 			}
 		})
 		g.It("should send accurate timing", func() {
-			client, err := CreateStatsdClient()
+			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
-			err = client.StartTrace("testing trace")
-			Expect(err).NotTo(HaveOccurred())
+			
+			// Note: usually, we'd handle tracing in a call that looks like this:
+			// defer stats.End(Trace("testing trace"))
+			// but because we're trying to get results from the UDP listener
+			// we've stubbed in instead of a real statsd service, we need more
+			// method body after the "do some work for a while" part of our function.
+			// In order to accomodate this, we need to break things up in a way
+			// that won't be used in real code very often
+			traceIdentifier, timestamp, incrementBy := Trace("testing trace")
+			// do some work for a while
 			time.Sleep(1 * time.Millisecond)
-			err = client.EndTrace("testing trace")
-			Expect(err).NotTo(HaveOccurred())
+			stats.End(traceIdentifier, timestamp, incrementBy)
 			readLength, _, err := sock.ReadFromUDP(buf)
 			Expect(err).NotTo(HaveOccurred())
 			readStr := string(buf[:readLength])
@@ -94,23 +100,6 @@ func TestStatsd(t *testing.T) {
 			Expect(err).NotTo(HaveOccurred())
 			driftNanoseconds := math.Abs(float64(traceTime - int64(time.Millisecond)))
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
-		})
-		g.It("should provide correct error when ending a trace without starting it", func() {
-			client, err := CreateStatsdClient()
-			Expect(err).NotTo(HaveOccurred())
-			err = client.EndTrace("testing trace")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Error, must start trace \"testing trace\" before ending it"))
-		})
-		g.It("should clean up completed traces", func() {
-			client, err := CreateStatsdClient()
-			Expect(err).NotTo(HaveOccurred())
-			err = client.StartTrace("testing trace")
-			Expect(err).NotTo(HaveOccurred())
-			err = client.EndTrace("testing trace")
-			Expect(err).NotTo(HaveOccurred())
-			_, foundTestingTrace := client.TimeableStats["testing trace"]
-			Expect(foundTestingTrace).To(Equal(false))
 		})
 	})
 }

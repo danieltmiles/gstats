@@ -2,29 +2,18 @@ package gstats
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"time"
 
 	"github.com/cactus/go-statsd-client/statsd"
 )
 
-type statsToBeIncremented struct {
-	Stat  string
-	Count int64
-	Rate  float32
-}
-type statsToBeTraced struct {
-	Stat  string
-	Start time.Time
-}
-type StatsClientWrapper struct {
-	Client             *statsd.Client
-	IncrementableStats map[string]statsToBeIncremented
-	TimeableStats      map[string]statsToBeTraced
+// wrapper/adapter around the cactus statsd client
+type Statistics struct {
+	client *statsd.Client
 }
 
-func CreateStatsdClient() (*StatsClientWrapper, error) {
+func CreateStatsdClient() (*Statistics, error) {
 	address := os.Getenv("STATSD_ADDRESS")
 	if address == "" {
 		return nil, errors.New("environment variable STATSD_ADDRESS not defined, cannot continue")
@@ -37,38 +26,34 @@ func CreateStatsdClient() (*StatsClientWrapper, error) {
 	if err != nil {
 		return nil, errors.New("Couldn't initialize statsd.  StatsdInitError=\"" + err.Error() + "\"")
 	}
-	wrapper := StatsClientWrapper{client, make(map[string]statsToBeIncremented), make(map[string]statsToBeTraced)}
+	wrapper := Statistics{client}
 	return &wrapper, err
 }
-func (w *StatsClientWrapper) StartTrace(traceIdentifier string) error {
+// defer stats.End(Trace("foobar"))
+func Trace(traceIdentifier string) (string, time.Time, int64) {
 	timestamp := time.Now()
-	w.TimeableStats[traceIdentifier] = statsToBeTraced{traceIdentifier, timestamp}
-	return nil
+	return traceIdentifier, timestamp, 0
 }
 
-func (w *StatsClientWrapper) EndTrace(traceIdentifier string) error {
+// defer stats.End(TraceAndIncrement("foobar"))
+func TraceAndIncrement(traceIdentifier string) (string, time.Time, int64) {
 	timestamp := time.Now()
-	_, keyExists := w.TimeableStats[traceIdentifier]
-	if !keyExists {
-		return errors.New(fmt.Sprintf("Error, must start trace \"%s\" before ending it", traceIdentifier))
-	}
-	startTime := w.TimeableStats[traceIdentifier].Start
-	duration := int64(timestamp.Sub(startTime))
-	w.Client.Timing(traceIdentifier, duration, 1)
-	delete(w.TimeableStats, traceIdentifier)
-	return nil
+	return traceIdentifier, timestamp, 1
 }
 
-func (w *StatsClientWrapper) Inc(stat string) error {
-	_, keyExists := w.IncrementableStats[stat]
-	if !keyExists {
-		w.IncrementableStats[stat] = statsToBeIncremented{stat, 0, 1.0}
+func (s *Statistics) End(traceIdentifier string, timestamp time.Time, incrementBy int64) {
+	endingTimestamp := time.Now()
+	duration := int64(endingTimestamp.Sub(timestamp))
+	if incrementBy > 0 {
+		s.IncrementBy(traceIdentifier, incrementBy)
 	}
-	count := w.IncrementableStats[stat].Count + 1
-	oldRate := w.IncrementableStats[stat].Rate
-	// BOZO: cannot assign to w.IncrementableStats[stat].Count, so replace with
-	//       totally new object and hope the garbage collector does its thing
-	w.IncrementableStats[stat] = statsToBeIncremented{stat, count, oldRate}
-	w.Client.Inc(stat, count, oldRate)
-	return nil
+	s.client.Timing(traceIdentifier, duration, 1)
+}
+
+func (s *Statistics) Inc(stat string) error {
+	return s.IncrementBy(stat, 1)
+}
+
+func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
+	return s.client.Inc(stat, incrementBy, 1.0)
 }
