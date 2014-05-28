@@ -44,7 +44,7 @@ func TraceAndIncrement(traceIdentifier string) (string, time.Time, int64) {
 
 func (s *Statistics) End(traceIdentifier string, timestamp time.Time, incrementBy int64) {
 	endingTimestamp := time.Now()
-	duration := int64(endingTimestamp.Sub(timestamp))
+	duration := int64(endingTimestamp.Sub(timestamp) / time.Millisecond)
 	if incrementBy > 0 {
 		s.IncrementBy(traceIdentifier+".count", incrementBy)
 	}
