@@ -39,12 +39,12 @@ func TestStatsd(t *testing.T) {
 		g.BeforeEach(func() {
 			os.Clearenv()
 		})
-		g.It("should fail fast without STATSD_ADDRESS defined", func(){
+		g.It("should fail fast without STATSD_ADDRESS defined", func() {
 			os.Setenv("STATSD_PREFIX", "test")
 			_, err := CreateStatsdClient()
 			Expect(err).To(HaveOccurred())
 		})
-		g.It("should fail fast without STATSD_PREFIX defined", func(){
+		g.It("should fail fast without STATSD_PREFIX defined", func() {
 			os.Setenv("STATSD_ADDRESS", "127.0.0.1:31337")
 			_, err := CreateStatsdClient()
 			Expect(err).To(HaveOccurred())
@@ -105,7 +105,7 @@ func TestStatsd(t *testing.T) {
 			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
 		})
-		g.It("should trace and count", func(){
+		g.It("should trace and count", func() {
 			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
 			traceIdentifier, timestamp, incrementBy := TraceAndIncrement("testing trace")

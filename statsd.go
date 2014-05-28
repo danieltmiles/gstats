@@ -29,6 +29,7 @@ func CreateStatsdClient() (*Statistics, error) {
 	wrapper := Statistics{client}
 	return &wrapper, err
 }
+
 // defer stats.End(Trace("foobar"))
 func Trace(traceIdentifier string) (string, time.Time, int64) {
 	timestamp := time.Now()
@@ -45,7 +46,7 @@ func (s *Statistics) End(traceIdentifier string, timestamp time.Time, incrementB
 	endingTimestamp := time.Now()
 	duration := int64(endingTimestamp.Sub(timestamp))
 	if incrementBy > 0 {
-		s.IncrementBy(traceIdentifier + ".count", incrementBy)
+		s.IncrementBy(traceIdentifier+".count", incrementBy)
 	}
 	s.client.Timing(traceIdentifier, duration, 1)
 }
