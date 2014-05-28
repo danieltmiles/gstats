@@ -45,7 +45,7 @@ func (s *Statistics) End(traceIdentifier string, timestamp time.Time, incrementB
 	endingTimestamp := time.Now()
 	duration := int64(endingTimestamp.Sub(timestamp))
 	if incrementBy > 0 {
-		s.IncrementBy(traceIdentifier, incrementBy)
+		s.IncrementBy(traceIdentifier + ".count", incrementBy)
 	}
 	s.client.Timing(traceIdentifier, duration, 1)
 }

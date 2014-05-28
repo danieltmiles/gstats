@@ -13,6 +13,20 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func helper_GetDriftFromTrace(readStr string, statsdPrefix string, traceIdentifier string) float64 {
+	// match something like: "test.testing trace:1139292|ms"
+	re := regexp.MustCompile(`(.*)\.(.*):([0-9]*)\|(.*)`)
+	match := re.FindStringSubmatch(readStr)
+	Expect(len(match)).To(Equal(5))
+	Expect(match[1]).To(Equal(statsdPrefix))
+	Expect(match[2]).To(Equal(traceIdentifier))
+	Expect(match[4]).To(Equal("ms"))
+	traceTime, err := strconv.ParseInt(match[3], 10, 64)
+	Expect(err).NotTo(HaveOccurred())
+	driftNanoseconds := math.Abs(float64(traceTime - int64(time.Millisecond)))
+	return driftNanoseconds
+}
+
 func TestStatsd(t *testing.T) {
 	g := Goblin(t)
 	RegisterFailHandler(func(m string, _ ...int) { g.Fail(m) })
@@ -74,7 +88,6 @@ func TestStatsd(t *testing.T) {
 		g.It("should send accurate timing", func() {
 			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
-			
 			// Note: usually, we'd handle tracing in a call that looks like this:
 			// defer stats.End(Trace("testing trace"))
 			// but because we're trying to get results from the UDP listener
@@ -89,16 +102,26 @@ func TestStatsd(t *testing.T) {
 			readLength, _, err := sock.ReadFromUDP(buf)
 			Expect(err).NotTo(HaveOccurred())
 			readStr := string(buf[:readLength])
-			// match something like: "test.testing trace:1139292|ms"
-			re := regexp.MustCompile(`(.*)\.(.*):([0-9]*)\|(.*)`)
-			match := re.FindStringSubmatch(readStr)
-			Expect(len(match)).To(Equal(5))
-			Expect(match[1]).To(Equal("test"))
-			Expect(match[2]).To(Equal("testing trace"))
-			Expect(match[4]).To(Equal("ms"))
-			traceTime, err := strconv.ParseInt(match[3], 10, 64)
+			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
+			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
+		})
+		g.It("should trace and count", func(){
+			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
-			driftNanoseconds := math.Abs(float64(traceTime - int64(time.Millisecond)))
+			traceIdentifier, timestamp, incrementBy := TraceAndIncrement("testing trace")
+			// do some work for a while
+			time.Sleep(1 * time.Millisecond)
+			stats.End(traceIdentifier, timestamp, incrementBy)
+
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			readStr := string(buf[:readLength])
+			Expect(string(buf[:readLength])).To(Equal("test.testing trace.count:1|c"))
+
+			readLength, _, err = sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			readStr = string(buf[:readLength])
+			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
 		})
 	})
