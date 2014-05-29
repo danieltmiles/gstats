@@ -51,10 +51,12 @@ func (s *Statistics) End(traceIdentifier string, timestamp time.Time, incrementB
 	s.client.Timing(traceIdentifier, duration, 1)
 }
 
+// stats.Inc("AnEvent")
 func (s *Statistics) Inc(stat string) error {
-	return s.IncrementBy(stat, 1)
+	return s.IncrementBy(stat+".count", 1)
 }
 
+// stats.IncrementBy("Requests", 5) // I got 5 requests!
 func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
 	return s.client.Inc(stat, incrementBy, 1.0)
 }
