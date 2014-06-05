@@ -60,3 +60,7 @@ func (s *Statistics) Inc(stat string) error {
 func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
 	return s.client.Inc(stat, incrementBy, 1.0)
 }
+
+func (s *Statistics) Gauge(stat string, value int64) error {
+	return s.client.Gauge(stat, value, 1.0)
+}
