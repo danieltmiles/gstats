@@ -2,10 +2,14 @@ package gstats
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/cactus/go-statsd-client/statsd"
+	"github.com/etgryphon/stringUp"
 )
 
 // wrapper/adapter around the cactus statsd client
@@ -56,6 +60,12 @@ func (s *Statistics) Inc(stat string) error {
 	return s.IncrementBy(stat+".count", 1)
 }
 
+// stats.IncErr("This.Event.Records", "my error message") => "This.Event.Records.MyErrorMessage.count"
+func (s *Statistics) IncErr(stat string, err error) error {
+	stat = fmt.Sprintf(stat+".%s.count", normalize(err))
+	return s.IncrementBy(stat, 1)
+}
+
 // stats.IncrementBy("Requests", 5) // I got 5 requests!
 func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
 	return s.client.Inc(stat, incrementBy, 1.0)
@@ -63,4 +73,18 @@ func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
 
 func (s *Statistics) Gauge(stat string, value int64) error {
 	return s.client.Gauge(stat, value, 1.0)
+}
+
+//
+func normalize(toRecord error) string {
+	// "camel, case."
+	//TODO strip non-alphanumeric-space?
+	stripped := toRecord.Error()
+
+	// "camelCase"
+	cameled := stringUp.CamelCase(stripped)
+
+	// "CamelCase"
+	rune, size := utf8.DecodeRuneInString(cameled)
+	return string(unicode.ToUpper(rune)) + cameled[size:]
 }
