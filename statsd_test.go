@@ -1,6 +1,7 @@
 package gstats
 
 import (
+	"errors"
 	"math"
 	"net"
 	"os"
@@ -33,6 +34,22 @@ func TestStatsd(t *testing.T) {
 	g.Describe("Sanity", func() {
 		g.It("tests should function in a sane environment", func() {
 			Expect(1).To(Equal(1))
+		})
+	})
+	g.Describe("Normalization", func(){
+		g.It("should correctly cammel-case a simple happy-path error text", func(){
+			err := errors.New("cammel case")
+			normalizedErrorString := normalize(err)
+			Expect(normalizedErrorString).To(Equal("CammelCase"))
+		})
+		g.It("should remove non-alpha-numeric characters when normalizing error text", func(){
+			err := errors.New("This is a full sentence. Does it have punctuation?")
+			normalizedErrorString := normalize(err)
+			Expect(normalizedErrorString).To(Equal("ThisIsAFullSentenceDoesItHavePunctuation"))
+
+			err = errors.New("Here is some !@#$%^&*()_+= Perl")
+			normalizedErrorString = normalize(err)
+			Expect(normalizedErrorString).To(Equal("HereIsSomePerl"))
 		})
 	})
 	g.Describe("Environment", func() {
@@ -122,6 +139,17 @@ func TestStatsd(t *testing.T) {
 			readStr = string(buf[:readLength])
 			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
+		})
+		g.It("should stat normalized error text", func(){
+			stats, err := CreateStatsdClient()
+			Expect(err).NotTo(HaveOccurred())
+			err = errors.New("Custom !@#$ error &((@*# including. Punctuation & Perl")
+			err = stats.IncErr("myStat", err)
+			Expect(err).NotTo(HaveOccurred())
+
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(buf[:readLength])).To(Equal("test.myStat.CustomErrorIncludingPunctuationPerl.count:1|c"))
 		})
 	})
 }
