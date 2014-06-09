@@ -77,12 +77,8 @@ func (s *Statistics) Gauge(stat string, value int64) error {
 
 //
 func normalize(toRecord error) string {
-	// "camel, case."
-	//TODO strip non-alphanumeric-space?
-	stripped := toRecord.Error()
-
 	// "camelCase"
-	cameled := stringUp.CamelCase(stripped)
+	cameled := stringUp.CamelCase(toRecord.Error())
 
 	// "CamelCase"
 	rune, size := utf8.DecodeRuneInString(cameled)
