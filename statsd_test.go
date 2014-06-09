@@ -36,7 +36,7 @@ func TestStatsd(t *testing.T) {
 			Expect(1).To(Equal(1))
 		})
 	})
-	g.Describe("Normalization", func(){
+	g.Describe("Normalization (vendored import)", func(){
 		g.It("should correctly cammel-case a simple happy-path error text", func(){
 			err := errors.New("cammel case")
 			normalizedErrorString := normalize(err)
