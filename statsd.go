@@ -61,6 +61,7 @@ func (s *Statistics) Inc(stat string) error {
 }
 
 // stats.IncErr("This.Event.Records", "my error message") => "This.Event.Records.MyErrorMessage.count"
+// expected behavior to strip non-western characters
 func (s *Statistics) IncErr(stat string, err error) error {
 	stat = fmt.Sprintf(stat+".%s.count", normalize(err))
 	return s.IncrementBy(stat, 1)
@@ -75,8 +76,9 @@ func (s *Statistics) Gauge(stat string, value int64) error {
 	return s.client.Gauge(stat, value, 1.0)
 }
 
-//
+// expected behavior to strip non-western characters
 func normalize(toRecord error) string {
+	// the stringUp takes out the non-western chars
 	// "camelCase"
 	cameled := stringUp.CamelCase(toRecord.Error())
 

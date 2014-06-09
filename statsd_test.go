@@ -36,13 +36,13 @@ func TestStatsd(t *testing.T) {
 			Expect(1).To(Equal(1))
 		})
 	})
-	g.Describe("Normalization (vendored import)", func(){
-		g.It("should correctly cammel-case a simple happy-path error text", func(){
+	g.Describe("Normalization (vendored import)", func() {
+		g.It("should correctly cammel-case a simple happy-path error text", func() {
 			err := errors.New("cammel case")
 			normalizedErrorString := normalize(err)
 			Expect(normalizedErrorString).To(Equal("CammelCase"))
 		})
-		g.It("should remove non-alpha-numeric characters when normalizing error text", func(){
+		g.It("should remove non-alpha-numeric characters when normalizing error text", func() {
 			err := errors.New("This is a full sentence. Does it have punctuation?")
 			normalizedErrorString := normalize(err)
 			Expect(normalizedErrorString).To(Equal("ThisIsAFullSentenceDoesItHavePunctuation"))
@@ -50,6 +50,11 @@ func TestStatsd(t *testing.T) {
 			err = errors.New("Here is some !@#$%^&*()_+= Perl")
 			normalizedErrorString = normalize(err)
 			Expect(normalizedErrorString).To(Equal("HereIsSomePerl"))
+		})
+		g.It("should strip non-western UTF-8 characters", func() {
+			err := errors.New("Here is some !@#$%^&*()_+= Perl Hello, 世界")
+			normalizedErrorString := normalize(err)
+			Expect(normalizedErrorString).To(Equal("HereIsSomePerlHello"))
 		})
 	})
 	g.Describe("Environment", func() {
@@ -140,7 +145,7 @@ func TestStatsd(t *testing.T) {
 			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
 		})
-		g.It("should stat normalized error text", func(){
+		g.It("should stat normalized error text", func() {
 			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
 			err = errors.New("Custom !@#$ error &((@*# including. Punctuation & Perl")
