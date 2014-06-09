@@ -81,8 +81,7 @@ func TestStatsd(t *testing.T) {
 				Expect(err).NotTo(HaveOccurred())
 				readLength, _, err := sock.ReadFromUDP(buf)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(readLength).To(Equal(17))
-				Expect(string(buf[:readLength])).To(Equal("test.teststat:1|c"))
+				Expect(string(buf[:readLength])).To(Equal("test.teststat.count:1|c"))
 			}
 		})
 		g.It("should send accurate timing", func() {
