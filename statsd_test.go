@@ -126,6 +126,14 @@ func TestStatsd(t *testing.T) {
 			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
 		})
+		g.It("should send accurate timing directly", func() {
+			stats, err := CreateStatsdClient()
+			Expect(err).NotTo(HaveOccurred())
+			stats.Timing("TestStatistic", 500)
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(buf[:readLength])).To(Equal("test.TestStatistic:500|ms"))
+		})
 		g.It("should trace and count", func() {
 			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
