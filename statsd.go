@@ -12,6 +12,14 @@ import (
 	"github.com/etgryphon/stringUp"
 )
 
+type Statser interface {
+	End(string, time.Time, int64)
+	Inc(string) error
+	IncErr(string, error) error
+	IncrementBy(string, int64) error
+	Gauge(string, int64) error
+}
+
 // wrapper/adapter around the cactus statsd client
 type Statistics struct {
 	client *statsd.Client
