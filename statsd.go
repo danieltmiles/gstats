@@ -16,9 +16,11 @@ type Incrementer func(stat string, incrementBy int64) error
 
 type Statser interface {
 	End(string, time.Time, int64)
+	BufferedEnd(string, time.Time, int64)
 	Inc(string) error
 	IncErr(string, error) error
 	IncrementBy(string, int64) error
+	BufferedIncrementBy(string, int64) error
 	Gauge(string, int64) error
 }
 
@@ -32,6 +34,7 @@ type Statistics struct {
 func CreateStatsdClient() (*Statistics, error) {
 	return _CreateStatsdClient(time.Second)
 }
+
 func _CreateStatsdClient(bufferFlushPeriod time.Duration) (*Statistics, error) {
 	address := os.Getenv("STATSD_ADDRESS")
 	if address == "" {
@@ -46,7 +49,7 @@ func _CreateStatsdClient(bufferFlushPeriod time.Duration) (*Statistics, error) {
 		return nil, errors.New("Couldn't initialize statsd.  StatsdInitError=\"" + err.Error() + "\"")
 	}
 	wrapper := Statistics{client, make(map[string]int64), bufferFlushPeriod}
-	go wrapper.AutoFlushBufferedStats()
+	go wrapper.autoFlushBufferedStats()
 	return &wrapper, err
 }
 
@@ -62,13 +65,14 @@ func TraceAndIncrement(traceIdentifier string) (string, time.Time, int64) {
 	return traceIdentifier, timestamp, 1
 }
 
-func (s *Statistics) AutoFlushBufferedStats() {
+func (s *Statistics) autoFlushBufferedStats() {
 	for {
 		<-time.After(s.BufferFlushPeriod)
-		s.FlushBufferedStats()
+		s.flushBufferedStats()
 	}
 }
-func (s *Statistics) FlushBufferedStats() {
+
+func (s *Statistics) flushBufferedStats() {
 	for stat, incValue := range s.IncrementBuffers {
 		if incValue > 0 {
 			s.IncrementBuffers[stat] = 0
