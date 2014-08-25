@@ -80,6 +80,7 @@ func (s *Statistics) flushBufferedStats() {
 		}
 	}
 }
+
 func (s *Statistics) _End(traceIdentifier string, timestamp time.Time, incrementBy int64, incFunc incrementer) {
 	endingTimestamp := time.Now()
 	duration := int64(endingTimestamp.Sub(timestamp) / time.Millisecond)
