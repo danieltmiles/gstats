@@ -12,7 +12,7 @@ import (
 	"github.com/etgryphon/stringUp"
 )
 
-type Incrementer func(stat string, incrementBy int64) error
+type incrementer func(stat string, incrementBy int64) error
 
 type Statser interface {
 	End(string, time.Time, int64)
@@ -80,7 +80,7 @@ func (s *Statistics) flushBufferedStats() {
 		}
 	}
 }
-func (s *Statistics) _End(traceIdentifier string, timestamp time.Time, incrementBy int64, incFunc Incrementer) {
+func (s *Statistics) _End(traceIdentifier string, timestamp time.Time, incrementBy int64, incFunc incrementer) {
 	endingTimestamp := time.Now()
 	duration := int64(endingTimestamp.Sub(timestamp) / time.Millisecond)
 	if incrementBy > 0 {
