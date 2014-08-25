@@ -12,6 +12,8 @@ import (
 	"github.com/etgryphon/stringUp"
 )
 
+type Incrementer func(stat string, incrementBy int64) error
+
 type Statser interface {
 	End(string, time.Time, int64)
 	Inc(string) error
@@ -22,10 +24,15 @@ type Statser interface {
 
 // wrapper/adapter around the cactus statsd client
 type Statistics struct {
-	client *statsd.Client
+	client            *statsd.Client
+	IncrementBuffers  map[string]int64
+	BufferFlushPeriod time.Duration
 }
 
 func CreateStatsdClient() (*Statistics, error) {
+	return _CreateStatsdClient(time.Second)
+}
+func _CreateStatsdClient(bufferFlushPeriod time.Duration) (*Statistics, error) {
 	address := os.Getenv("STATSD_ADDRESS")
 	if address == "" {
 		return nil, errors.New("environment variable STATSD_ADDRESS not defined, cannot continue")
@@ -38,7 +45,8 @@ func CreateStatsdClient() (*Statistics, error) {
 	if err != nil {
 		return nil, errors.New("Couldn't initialize statsd.  StatsdInitError=\"" + err.Error() + "\"")
 	}
-	wrapper := Statistics{client}
+	wrapper := Statistics{client, make(map[string]int64), bufferFlushPeriod}
+	go wrapper.AutoFlushBufferedStats()
 	return &wrapper, err
 }
 
@@ -54,13 +62,35 @@ func TraceAndIncrement(traceIdentifier string) (string, time.Time, int64) {
 	return traceIdentifier, timestamp, 1
 }
 
-func (s *Statistics) End(traceIdentifier string, timestamp time.Time, incrementBy int64) {
+func (s *Statistics) AutoFlushBufferedStats() {
+	for {
+		<-time.After(s.BufferFlushPeriod)
+		s.FlushBufferedStats()
+	}
+}
+func (s *Statistics) FlushBufferedStats() {
+	for stat, incValue := range s.IncrementBuffers {
+		if incValue > 0 {
+			s.IncrementBuffers[stat] = 0
+			s.client.Inc(stat, incValue, 1.0)
+		}
+	}
+}
+func (s *Statistics) _End(traceIdentifier string, timestamp time.Time, incrementBy int64, incFunc Incrementer) {
 	endingTimestamp := time.Now()
 	duration := int64(endingTimestamp.Sub(timestamp) / time.Millisecond)
 	if incrementBy > 0 {
-		s.IncrementBy(traceIdentifier+".count", incrementBy)
+		incFunc(traceIdentifier+".count", incrementBy)
 	}
 	s.client.Timing(traceIdentifier, duration, 1)
+}
+
+func (s *Statistics) End(traceIdentifier string, timestamp time.Time, incrementBy int64) {
+	s._End(traceIdentifier, timestamp, incrementBy, s.IncrementBy)
+}
+
+func (s *Statistics) BufferedEnd(traceIdentifier string, timestamp time.Time, incrementBy int64) {
+	s._End(traceIdentifier, timestamp, incrementBy, s.BufferedIncrementBy)
 }
 
 // stats.Inc("AnEvent")
@@ -78,6 +108,19 @@ func (s *Statistics) IncErr(stat string, err error) error {
 // stats.IncrementBy("Requests", 5) // I got 5 requests!
 func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
 	return s.client.Inc(stat, incrementBy, 1.0)
+}
+
+// stats.BufferedIncrementBy("Requests", 5) // I got 5 requests!
+func (s *Statistics) BufferedIncrementBy(stat string, incrementBy int64) error {
+	// if we have never seen this stat before, we simply return 0 for val
+	val, _ := s.IncrementBuffers[stat]
+	s.IncrementBuffers[stat] = val + incrementBy
+	incValue, _ := s.IncrementBuffers[stat]
+	if s.IncrementBuffers[stat] >= 100 {
+		s.IncrementBuffers[stat] = 0
+		return s.client.Inc(stat, incValue, 1.0)
+	}
+	return nil
 }
 
 func (s *Statistics) Gauge(stat string, value int64) error {

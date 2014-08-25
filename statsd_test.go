@@ -126,6 +126,27 @@ func TestStatsd(t *testing.T) {
 			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
 		})
+		g.It("should send accurate timing even with BufferedEnd", func() {
+			stats, err := _CreateStatsdClient(100 * time.Millisecond)
+			Expect(err).NotTo(HaveOccurred())
+			// Note: usually, we'd handle tracing in a call that looks like this:
+			// defer stats.End(Trace("testing trace"))
+			// but because we're trying to get results from the UDP listener
+			// we've stubbed in instead of a real statsd service, we need more
+			// method body after the "do some work for a while" part of our function.
+			// In order to accomodate this, we need to break things up in a way
+			// that won't be used in real code very often
+			traceIdentifier, timestamp, incrementBy := Trace("testing trace")
+			// do some work for a while
+			time.Sleep(1 * time.Millisecond)
+			stats.BufferedEnd(traceIdentifier, timestamp, incrementBy)
+			time.Sleep(105 * time.Millisecond)
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			readStr := string(buf[:readLength])
+			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
+			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
+		})
 		g.It("should trace and count", func() {
 			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
@@ -145,6 +166,26 @@ func TestStatsd(t *testing.T) {
 			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
 			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
 		})
+		g.It("should trace and count even with BufferedEnd", func() {
+			stats, err := _CreateStatsdClient(100 * time.Millisecond)
+			Expect(err).NotTo(HaveOccurred())
+			traceIdentifier, timestamp, incrementBy := TraceAndIncrement("testing trace")
+			// do some work for a while
+			time.Sleep(1 * time.Millisecond)
+			stats.BufferedEnd(traceIdentifier, timestamp, incrementBy)
+			time.Sleep(105 * time.Millisecond)
+
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			readStr := string(buf[:readLength])
+			driftNanoseconds := helper_GetDriftFromTrace(readStr, "test", "testing trace")
+			Expect(driftNanoseconds).Should(BeNumerically("<", 10*time.Millisecond))
+
+			readLength, _, err = sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			readStr = string(buf[:readLength])
+			Expect(string(buf[:readLength])).To(Equal("test.testing trace.count:1|c"))
+		})
 		g.It("should stat normalized error text", func() {
 			stats, err := CreateStatsdClient()
 			Expect(err).NotTo(HaveOccurred())
@@ -155,6 +196,69 @@ func TestStatsd(t *testing.T) {
 			readLength, _, err := sock.ReadFromUDP(buf)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(buf[:readLength])).To(Equal("test.myStat.CustomErrorIncludingPunctuationPerl.count:1|c"))
+		})
+		g.It("should increment by the requested amount", func() {
+			stats, err := CreateStatsdClient()
+			Expect(err).NotTo(HaveOccurred())
+			err = stats.IncrementBy("testing IncrementBy", int64(20))
+			Expect(err).NotTo(HaveOccurred())
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(readLength).To(BeNumerically(">", 0))
+			Expect(string(buf[:readLength])).To(Equal("test.testing IncrementBy:20|c"))
+		})
+		g.It("should buffer incrementBy calls until it gets to 100", func() {
+			stats, err := CreateStatsdClient()
+			Expect(err).NotTo(HaveOccurred())
+			for i := 0; i < 5; i++ {
+				err = stats.BufferedIncrementBy("testing IncrementBy", int64(20))
+				Expect(err).NotTo(HaveOccurred())
+			}
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(readLength).To(BeNumerically(">", 0))
+			Expect(string(buf[:readLength])).To(Equal("test.testing IncrementBy:100|c"))
+		})
+		g.It("should buffer incrementBy calls until it gets to 100 even if it does not get there in even numbers", func() {
+			stats, err := CreateStatsdClient()
+			Expect(err).NotTo(HaveOccurred())
+			for i := 0; i < 6; i++ {
+				err = stats.BufferedIncrementBy("testing IncrementBy", int64(19))
+				Expect(err).NotTo(HaveOccurred())
+			}
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(readLength).To(BeNumerically(">", 0))
+			Expect(string(buf[:readLength])).To(Equal("test.testing IncrementBy:114|c"))
+		})
+		g.It("should buffer separate stats seperately", func() {
+			stats, err := CreateStatsdClient()
+			Expect(err).NotTo(HaveOccurred())
+			for i := 0; i < 4; i++ {
+				err = stats.BufferedIncrementBy("testing IncrementBy 1", int64(20))
+				err = stats.BufferedIncrementBy("testing IncrementBy 2", int64(20))
+				Expect(err).NotTo(HaveOccurred())
+			}
+			err = stats.BufferedIncrementBy("testing IncrementBy 1", int64(20))
+			Expect(err).NotTo(HaveOccurred())
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(readLength).To(BeNumerically(">", 0))
+			Expect(string(buf[:readLength])).To(Equal("test.testing IncrementBy 1:100|c"))
+			err = stats.BufferedIncrementBy("testing IncrementBy 2", int64(20))
+			Expect(err).NotTo(HaveOccurred())
+			readLength, _, err = sock.ReadFromUDP(buf)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(readLength).To(BeNumerically(">", 0))
+			Expect(string(buf[:readLength])).To(Equal("test.testing IncrementBy 2:100|c"))
+		})
+		g.It("should flush stats periodically", func() {
+			stats, err := _CreateStatsdClient(100 * time.Millisecond)
+			Expect(err).NotTo(HaveOccurred())
+			for i := 0; i < 5; i++ {
+				err = stats.BufferedIncrementBy("testing IncrementBy", int64(19))
+				Expect(err).NotTo(HaveOccurred())
+			}
+			time.Sleep(105 * time.Millisecond)
+			readLength, _, err := sock.ReadFromUDP(buf)
+			Expect(readLength).To(BeNumerically(">", 0))
+			Expect(string(buf[:readLength])).To(Equal("test.testing IncrementBy:95|c"))
 		})
 	})
 }
