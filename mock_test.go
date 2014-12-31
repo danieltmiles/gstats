@@ -12,10 +12,10 @@ import (
 func TestMocks(t *testing.T) {
 	g := Goblin(t)
 	RegisterFailHandler(func(m string, _ ...int) { g.Fail(m) })
-	g.Describe("CallRecordingMockStatser", func() {
-		var stats CallRecordingMockStatser
+	g.Describe("MockStatser", func() {
+		var stats MockStatser
 		g.BeforeEach(func() {
-			stats = CallRecordingMockStatser{}
+			stats = MockStatser{}
 		})
 		g.It("should record calls to Inc", func() {
 			stats.Inc("testing inc")
