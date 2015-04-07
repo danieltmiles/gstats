@@ -117,6 +117,8 @@ func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
 
 // stats.BufferedIncrementBy("Requests", 5) // I got 5 requests!
 func (s *Statistics) BufferedIncrementBy(stat string, incrementBy int64) error {
+fmt.Printf("\n***Trying to stat yo : "+stat)
+fmt.Printf("\n***Increment by : %v",incrementBy)
 	// if we have never seen this stat before, we simply return 0 for val
 	val, _ := s.IncrementBuffers[stat]
 	s.IncrementBuffers[stat] = val + incrementBy
