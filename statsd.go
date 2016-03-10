@@ -26,7 +26,7 @@ type Statser interface {
 
 // wrapper/adapter around the cactus statsd client
 type Statistics struct {
-	client            *statsd.Client
+	client            statsd.Statter
 	IncrementBuffers  map[string]int64
 	BufferFlushPeriod time.Duration
 }
