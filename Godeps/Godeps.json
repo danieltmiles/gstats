@@ -4,7 +4,8 @@
 	"Deps": [
 		{
 			"ImportPath": "github.com/cactus/go-statsd-client/statsd",
-			"Rev": "5b5607a786a6be31226ca2063e49695712aebc6d"
+			"Comment": "v3.0.3-10-gf8ec591",
+			"Rev": "f8ec59164ee0749607f4ffc51ad7232caa5ff6e6"
 		},
 		{
 			"ImportPath": "github.com/etgryphon/stringUp",
