@@ -29,6 +29,7 @@ type Statistics struct {
 	client            statsd.Statter
 	IncrementBuffers  map[string]int64
 	BufferFlushPeriod time.Duration
+	mu                chan bool
 }
 
 func CreateStatsdClient() (*Statistics, error) {
@@ -48,7 +49,7 @@ func _CreateStatsdClient(bufferFlushPeriod time.Duration) (*Statistics, error) {
 	if err != nil {
 		return nil, errors.New("Couldn't initialize statsd.  StatsdInitError=\"" + err.Error() + "\"")
 	}
-	wrapper := Statistics{client, make(map[string]int64), bufferFlushPeriod}
+	wrapper := Statistics{client, make(map[string]int64), bufferFlushPeriod, make(chan bool, 1)}
 	go wrapper.autoFlushBufferedStats()
 	return &wrapper, err
 }
@@ -117,6 +118,8 @@ func (s *Statistics) IncrementBy(stat string, incrementBy int64) error {
 
 // stats.BufferedIncrementBy("Requests", 5) // I got 5 requests!
 func (s *Statistics) BufferedIncrementBy(stat string, incrementBy int64) error {
+	s.mu <- true
+	defer func() { <-s.mu }()
 	// if we have never seen this stat before, we simply return 0 for val
 	val, _ := s.IncrementBuffers[stat]
 	s.IncrementBuffers[stat] = val + incrementBy
