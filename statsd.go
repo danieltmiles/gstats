@@ -74,6 +74,8 @@ func (s *Statistics) autoFlushBufferedStats() {
 }
 
 func (s *Statistics) flushBufferedStats() {
+	s.mu <- true
+	defer func() { <-s.mu }()
 	for stat, incValue := range s.IncrementBuffers {
 		if incValue > 0 {
 			s.IncrementBuffers[stat] = 0
